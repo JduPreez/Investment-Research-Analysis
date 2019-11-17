@@ -6,7 +6,7 @@ getRowNo <- function(dataFrame, value) {
   return(rowNo)
 }
 
-worldOilDir = "C:\\Users\\dupreeja\\Proj\\Learning\\Investment Analytics\\Energy\\"
+worldOilDir = "C:\\Users\\jacqu\\Documents\\Proj\\Investment-Research-Analysis\\Oil\\"
 worldOil = read.csv(file = paste(worldOilDir, "Oil Production - Barrels 1965 to 2019.csv", sep=""), skip=2, header=TRUE)
 
 # Get the Total World row, ignoring the last 3 columns
