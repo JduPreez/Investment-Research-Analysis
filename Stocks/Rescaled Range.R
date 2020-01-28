@@ -31,7 +31,6 @@ mean_adj_ser <- function(values, mean_val)  {
 }
 
 mas <- mean_adj_ser(closePrices, m)
-mas
 
 # 3. Calculate the cumulative deviate series Z
 # --------------------------------------------
@@ -39,3 +38,12 @@ mas
 # three values X+Y+Z and so on to create a new series.
 cds <- cumsum(mas) # runSD(mas, n=1, cumulative=TRUE)
 cds
+
+# 4. Create a range series R
+#---------------------------
+R <- max(cds) - min(cds)
+
+S <- sd(closePrices)
+
+rescaledRange <- R/S
+rescaledRange
