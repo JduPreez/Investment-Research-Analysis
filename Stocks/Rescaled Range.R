@@ -15,6 +15,8 @@ sharePrices = read.csv(file = paste(dir, "Electronic-Arts-Historical-Prices.csv"
 # https://stackoverflow.com/questions/7070173/convert-data-frame-column-to-a-vector
 closePrices <- sharePrices[["Close"]]
 
+str(closePrices)
+
 # 1. Calculate the mean
 m <- mean(closePrices)
 
