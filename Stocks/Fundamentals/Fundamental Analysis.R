@@ -59,11 +59,15 @@ post_tax_ebita          <- as.numeric(income_statement[post_tax_ebita_row, ])
 shares_outstanding      <- as.numeric(balance_sheet[shares_outstanding_row, ])
 
 # Sales-Revenue Growth %
-diff(sales_revenue)/sales_revenue[-length(sales_revenue)] * 100
+sales_growth_perc <- diff(sales_revenue)/sales_revenue[-length(sales_revenue)] * 100
+
+# Makes oldest year's sales growth 0
+# to ensure same number of years/columns as other data points 
+sales_growth_perc <- c(sales_growth_perc, 0)
 
 # Free Cash Flow Margin %
 # Net Operating Cash Flow - Capital Expenditures/Sales-Revenue
-(net_operating_cash_flow - capital_expenditures)/sales_revenue * 100
+free_cash_flow_margin_perc <- (net_operating_cash_flow - capital_expenditures)/sales_revenue * 100
 
 # Implied Earnings Power Value (EPV)
 # Post Tax EBITA/(Required Rate/100)
@@ -80,7 +84,16 @@ epv_per_share <- equity_value/shares_outstanding
 
 # EPV as % of share price
 epv_perc_of_share <- (epv_per_share/current_share_price) * 100
-epv_perc_of_share
 
-# TODO: Use grid.table to put data into a summary table:
-# https://stackoverflow.com/questions/32926718/r-gridextra-how-to-plot-a-summary-as-table
+# Create matrix for grid table
+analysis            <- rbind(sales_growth_perc, 
+                            free_cash_flow_margin_perc, 
+                            epv_perc_of_share)
+
+rownames(analysis)  <- c("Sales-Revenue Growth %", 
+                          "Free Cash Flow Margin %",
+                          "EPV as % of share price")
+                          
+colnames(analysis)  <- c("2018", "2017", "2016", "2015", "2014")
+
+grid.table(analysis)
