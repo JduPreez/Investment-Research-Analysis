@@ -9,7 +9,7 @@ library(grid)
 
 options(scipen = 999)
 
-company               <- "Pfizer"
+company               <- "China-Merchants-Bank"
 row_name_column       <- "Name"
 required_ret_int_rate <- 10
 current_share_price   <- 11.99
@@ -33,6 +33,10 @@ ensure_numbers <- function(val) {
   val <- ifelse(val == "-", "0", val)
   val <- gsub(",", "", val)
   as.numeric(val)
+}
+
+numeric_row <- function {
+  
 }
 
 balance_sheet_file      <- paste("Stocks/Fundamentals/", company, "/Balance-Sheet-Annual.xls", sep="")
