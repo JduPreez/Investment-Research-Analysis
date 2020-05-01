@@ -15,13 +15,19 @@ required_ret_int_rate <- 10
 current_share_price   <- 11.99
 
 # Mappings
+# Income statement mappings
 sales_revenue_row           <- "Total Revenue"
+post_tax_ebita_row          <- "Net Income Available to Common Stockholders"
+
+# Cash flow statement mappings
 net_operating_cash_flow_row <- "Cash Flow from Operating Activities, Indirect"
 capital_expenditures_row    <- "Purchase/Sale and Disposal of Property, Plant and Equipment, Net"
-post_tax_ebita_row          <- "Net Income Available to Common Stockholders"
+
+# Balance sheet mappings
 debt_row                    <- c("Current Portion of Long Term Debt", "Long Term Debt", "Current Debt")
 shares_outstanding_row      <- "Common Shares Outstanding"
-cash_short_term_invest_row  <- "Cash, Cash Equivalents and Short Term Investments"
+cash_short_term_invest_row  <- "Cash and Cash Equivalents" # "Cash, Cash Equivalents and Short Term Investments"
+
 
 
 set_row_names <- function(data_frame, row_name_colmn)  {
@@ -35,8 +41,13 @@ ensure_numbers <- function(val) {
   as.numeric(val)
 }
 
-numeric_row <- function {
+ensure_row_exists <- function(row_search, data_frm) {
+  z <- row_search %in% row.names(data_frm)
+  if (!(z)) {
+    stop("Row not found", call. = FALSE)
+  }
   
+  TRUE
 }
 
 balance_sheet_file      <- paste("Stocks/Fundamentals/", company, "/Balance-Sheet-Annual.xls", sep="")
@@ -45,23 +56,31 @@ cash_flow_file          <- paste("Stocks/Fundamentals/", company, "/Cash-Flow-An
 
 income_statement_src    <- read_excel(income_statement_file)
 income_statement        <- set_row_names(income_statement_src, row_name_column)
+cash_flow_src           <- read_excel(cash_flow_file)
+cash_flow               <- set_row_names(cash_flow_src, row_name_column)
+balance_sheet_src       <- read_excel(balance_sheet_file)
+balance_sheet           <- set_row_names(balance_sheet_src, row_name_column)
+
+ensure_row_exists(net_operating_cash_flow_row, cash_flow)
+ensure_row_exists(capital_expenditures_row, cash_flow)
+ensure_row_exists(sales_revenue_row, income_statement)
+ensure_row_exists(post_tax_ebita_row, income_statement)
+ensure_row_exists(shares_outstanding_row, balance_sheet)
+ensure_row_exists(cash_short_term_invest_row, balance_sheet)
+
 income_statement[]      <- lapply(income_statement, ensure_numbers)
 income_statement[]      <- lapply(income_statement, as.numeric)
 income_statement$TTM    <- NULL
-
-cash_flow_src           <- read_excel(cash_flow_file)
-cash_flow               <- set_row_names(cash_flow_src, row_name_column)
 cash_flow[]             <- lapply(cash_flow, ensure_numbers)
 cash_flow$TTM           <- NULL
-
-balance_sheet_src       <- read_excel(balance_sheet_file)
-balance_sheet           <- set_row_names(balance_sheet_src, row_name_column)
 balance_sheet[]         <- lapply(balance_sheet, ensure_numbers)
 
 sales_revenue           <- as.numeric(income_statement[sales_revenue_row, ])
+post_tax_ebita          <- as.numeric(income_statement[post_tax_ebita_row, ])
+
 net_operating_cash_flow <- as.numeric(cash_flow[net_operating_cash_flow_row, ])
 capital_expenditures    <- as.numeric(cash_flow[capital_expenditures_row, ])
-post_tax_ebita          <- as.numeric(income_statement[post_tax_ebita_row, ])
+
 shares_outstanding      <- as.numeric(balance_sheet[shares_outstanding_row, ])
 cash_short_term_invest  <- as.numeric(balance_sheet[cash_short_term_invest_row, ])
 
@@ -111,6 +130,4 @@ rownames(analysis)  <- c("Sales-Revenue Growth %",
 colnames(analysis)  <- c("2018", "2017", "2016", "2015", "2014")
 
 dev.new(width=15, height=5)
-#grid.table(analysis)
-cash_short_term_invest
-net_debt
+grid.table(analysis)
