@@ -9,23 +9,28 @@ library(grid)
 
 options(scipen = 999)
 
-company               <- "Pfizer"
-row_name_column       <- "Name"
+company               <- "NetDragon-WebSoft"
+row_name_column       <- "00777_IncomeStatement_Annual_Restated"
 required_ret_int_rate <- 10
-current_share_price   <- 11.99
+current_share_price   <- 20.45 # CNY
 
 # Mappings
+# Income statement mappings
 sales_revenue_row           <- "Total Revenue"
+post_tax_ebita_row          <- "Net Income Available to Common Stockholders"
+
+# Cash flow statement mappings
 net_operating_cash_flow_row <- "Cash Flow from Operating Activities, Indirect"
 capital_expenditures_row    <- "Purchase/Sale and Disposal of Property, Plant and Equipment, Net"
-post_tax_ebita_row          <- "Net Income Available to Common Stockholders"
+
+# Balance sheet mappings
 debt_row                    <- c("Current Portion of Long Term Debt", "Long Term Debt", "Current Debt")
 shares_outstanding_row      <- "Common Shares Outstanding"
-cash_short_term_invest_row  <- "Cash, Cash Equivalents and Short Term Investments"
+cash_short_term_invest_row  <- "Cash and Cash Equivalents" # "Cash, Cash Equivalents and Short Term Investments"
 
-
-set_row_names <- function(data_frame, row_name_colmn)  {
-   data_frame %>% remove_rownames %>% column_to_rownames(var=row_name_colmn)
+set_row_names <- function(data_frame)  {
+  row_name_column <- colnames(data_frame)[1]
+  data_frame %>% remove_rownames %>% column_to_rownames(var=row_name_column)
 }
 
 ensure_numbers <- function(val) {
@@ -35,34 +40,57 @@ ensure_numbers <- function(val) {
   as.numeric(val)
 }
 
+# TODO: Don't stop here, rather add each row not found to a collection
+#       and if this list has 1 or more items in stop and print all missing rows.
+ensure_rows_exist_recur <- function(rows_search, data_set) {
+  if (length(rows_search) > 1) {
+    for (row_search in rows_search) {
+      ensure_rows_exist_recur(row_search, data_set)
+    }
+  }
+
+  if (length(rows_search) == 1) {
+    is_contained <- rows_search %in% row.names(data_set)
+    if (!(is_contained)) {
+      stop(paste("Row not found: ", rows_search), call. = FALSE)
+    }
+  }
+}
+
 balance_sheet_file      <- paste("Stocks/Fundamentals/", company, "/Balance-Sheet-Annual.xls", sep="")
 income_statement_file   <- paste("Stocks/Fundamentals/", company,"/Income-Statement-Annual.xls", sep="")
 cash_flow_file          <- paste("Stocks/Fundamentals/", company, "/Cash-Flow-Annual.xls", sep="")
 
 income_statement_src    <- read_excel(income_statement_file)
-income_statement        <- set_row_names(income_statement_src, row_name_column)
+cash_flow_src           <- read_excel(cash_flow_file)
+balance_sheet_src       <- read_excel(balance_sheet_file)
+
+income_statement        <- set_row_names(income_statement_src)
+cash_flow               <- set_row_names(cash_flow_src)
+balance_sheet           <- set_row_names(balance_sheet_src)
+
+# Check that each data set has the required rows
+ensure_rows_exist_recur(list(sales_revenue_row, post_tax_ebita_row), income_statement)
+ensure_rows_exist_recur(list(net_operating_cash_flow_row, capital_expenditures_row), cash_flow)
+ensure_rows_exist_recur(list(debt_row, shares_outstanding_row, cash_short_term_invest_row), balance_sheet)
+
 income_statement[]      <- lapply(income_statement, ensure_numbers)
 income_statement[]      <- lapply(income_statement, as.numeric)
 income_statement$TTM    <- NULL
-
-cash_flow_src           <- read_excel(cash_flow_file)
-cash_flow               <- set_row_names(cash_flow_src, row_name_column)
 cash_flow[]             <- lapply(cash_flow, ensure_numbers)
 cash_flow$TTM           <- NULL
-
-balance_sheet_src       <- read_excel(balance_sheet_file)
-balance_sheet           <- set_row_names(balance_sheet_src, row_name_column)
 balance_sheet[]         <- lapply(balance_sheet, ensure_numbers)
 
 sales_revenue           <- as.numeric(income_statement[sales_revenue_row, ])
+post_tax_ebita          <- as.numeric(income_statement[post_tax_ebita_row, ])
+
 net_operating_cash_flow <- as.numeric(cash_flow[net_operating_cash_flow_row, ])
 capital_expenditures    <- as.numeric(cash_flow[capital_expenditures_row, ])
-post_tax_ebita          <- as.numeric(income_statement[post_tax_ebita_row, ])
+
 shares_outstanding      <- as.numeric(balance_sheet[shares_outstanding_row, ])
 cash_short_term_invest  <- as.numeric(balance_sheet[cash_short_term_invest_row, ])
 
-# Sales-Revenue Growth %
-sales_growth_perc <- diff(sales_revenue)/sales_revenue[-length(sales_revenue)] * 100
+sales_growth_perc <- diff(sales_revenue)/sales_revenue[-length(sales_revenue)] * 100 # Sales-Revenue Growth %
 
 # Makes oldest year's sales growth 0
 # to ensure same number of years/columns as other data points 
@@ -91,22 +119,25 @@ epv_perc_of_share <- (epv_per_share/current_share_price) * 100
 # Cash Flow to Debt
 # Cash and short-term investments/Total Debt
 # https://www.investopedia.com/terms/c/cash-flowtodebt-ratio.asp
-cash_flow_to_debt <- (cash_short_term_invest/net_debt) * 100
+cash_flow_to_debt <- (net_operating_cash_flow/net_debt) * 100
+
+net_operating_cash_flow
+net_debt
 
 # Create matrix for grid table
-analysis            <- rbind(sales_growth_perc, 
+analysis            <- rbind(sales_growth_perc,                            
                             free_cash_flow_margin_perc, 
                             epv_perc_of_share,
                             cash_flow_to_debt)
 
-rownames(analysis)  <- c("Sales-Revenue Growth %", 
+# TODO: Add Return On Capital Employed: https://simplywall.st/news/we-like-these-underlying-trends-at-netdragon-websoft-holdings-hkg777/
+rownames(analysis)  <- c("Sales-Revenue Growth %",                           
                           "Free Cash Flow Margin %",
                           "EPV as % of share price",
                           "Cash Flow to Debt")
                           
-colnames(analysis)  <- c("2018", "2017", "2016", "2015", "2014")
+# TODO: Get years from column names, because order differs from company to company
+colnames(analysis)  <- c("2015", "2016", "2017", "2018", "2019")
 
 dev.new(width=15, height=5)
-#grid.table(analysis)
-cash_short_term_invest
-net_debt
+grid.table(analysis)
