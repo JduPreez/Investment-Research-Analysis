@@ -10,6 +10,13 @@ library(gridExtra)
 library(grid)
 library(BatchGetSymbols)
 
+get_last_share_price <- function(share_prices, symbol, type)  {
+ symbol_prices <- share_prices[share_prices[,"ticker"] == symbol,]
+ last_date <- max(symbol_prices[,"ref.date"], na.rm = TRUE)
+ lsp <- symbol_prices[symbol_prices[,"ref.date"] == last_date,]
+ lsp[, paste("price.", type, sep="")]
+}
+
 first.date <- Sys.Date() - 10
 last.date <- Sys.Date()
 freq.data <- "daily"
@@ -36,13 +43,27 @@ first.date <- Sys.Date() - 5
 last.date <- Sys.Date()
 freq.data <- "daily"
 
-symbols
-
-l.out <- BatchGetSymbols(tickers = symbols, 
-                         first.date = first.date,
-                         last.date = last.date, 
-                         freq.data = freq.data,
-                         cache.folder = file.path(tempdir(), 
+market_prices <- BatchGetSymbols(tickers = symbols, 
+                                first.date = first.date,
+                                last.date = last.date, 
+                                freq.data = freq.data,
+                                cache.folder = file.path(tempdir(), 
                                                   'BGS_Cache'))
 
-View(l.out)
+last_share_prices <- c()
+for (row in 1:nrow(open_positions_details)) {
+  last_share_prices <- c(last_share_prices, 
+                         get_last_share_price(market_prices[["df.tickers"]], 
+                                              open_positions_details[row, "Symbol (Yahoo!)"],
+                                              "close"))
+  quantity * share_price
+}
+
+#View(market_prices[["df.tickers"]])
+open_positions_details["last_share_price"] <- last_share_prices
+
+View(open_positions_details)
+
+# Amount.x * Price
+# Amount.x * Most recent share price
+
