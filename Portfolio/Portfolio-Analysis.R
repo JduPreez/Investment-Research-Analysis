@@ -9,6 +9,11 @@ library(tidyverse)
 library(gridExtra)
 library(grid)
 library(BatchGetSymbols)
+library(quantmod)
+
+options(scipen = 999)
+
+account_currency <- "SGD"
 
 get_last_share_price <- function(share_prices, symbol, type)  {
  symbol_prices <- share_prices[share_prices[,"ticker"] == symbol,]
@@ -50,20 +55,37 @@ market_prices <- BatchGetSymbols(tickers = symbols,
                                 cache.folder = file.path(tempdir(), 
                                                   'BGS_Cache'))
 
+from      <- c("USD", "SEK", "EUR", "GBP", "HKD")
+to        <- c("SGD")
+fx_rates  <- getQuote(paste0(from, to, "=X"))
+
+View(fx_rates)
+
 last_share_prices <- c()
+position_fx_rates <- c()
 for (row in 1:nrow(open_positions_details)) {
   last_share_prices <- c(last_share_prices, 
-                         get_last_share_price(market_prices[["df.tickers"]], 
+                         get_last_share_price(market_prices[["df.tickers"]],
                                               open_positions_details[row, "Symbol (Yahoo!)"],
                                               "close"))
-  quantity * share_price
+  
+  position_fx_rates <- c(position_fx_rates, 
+                         fx_rates[paste(open_positions_details[row, "Currency"], account_currency, "=X", sep=""), "Last"])
 }
 
-#View(market_prices[["df.tickers"]])
 open_positions_details["last_share_price"] <- last_share_prices
+open_positions_details["position_fx_rate"] <- position_fx_rates
 
-View(open_positions_details)
 
-# Amount.x * Price
-# Amount.x * Most recent share price
+# TODO: Convert to account currency
+open_positions_details["position_total_close"]  <- open_positions_details[, "Amount.x"] * 
+                                                    open_positions_details[, "last_share_price"] * 
+                                                    open_positions_details[, "position_fx_rate"]
 
+
+colnames(open_positions_details)[colnames(open_positions_details) == "Booked Amount"] <- "position_total_open"
+
+holding_total_close <- aggregate(open_positions_details[, "position_total_close"], by=list(open_positions_details[, "Instrument"]), FUN=sum)
+
+
+View(holding_total_close[order(-holding_total_close[,"x"]),])
