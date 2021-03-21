@@ -21,11 +21,17 @@ options(digits = 6)
 account_currency <- "SGD"
 
 get_last_share_price <- function(share_prices, symbol, type, fraction)  {
+  # For some reason sometimes duplicate share_prices are returned for a day.
+  # So 1st remove these.
+  #share_prices <- share_prices %>%
+  #                distinct(price.open, price.high, price.low, price.close, price.adjusted, ref.date, ticker)
+  
   fraction <- ifelse(!is.na(fraction), fraction, 1)
   symbol_prices <- share_prices[share_prices[,"ticker"] == symbol,]
   last_date <- max(symbol_prices[,"ref.date"], na.rm = TRUE)
   lsp <- symbol_prices[symbol_prices[,"ref.date"] == last_date,]
-  lsp[, paste("price.", type, sep="")]/fraction
+  (lsp[, paste("price.", type, sep="")]/fraction) %>%
+    first()
 }
 
 first.date <- Sys.Date() - 10
@@ -37,7 +43,7 @@ freq.data <- "daily"
 #                         NetEase stock was split. How to handle stock splits?
 
 share_classification <- read_excel(here("Data", "Share_Classification.xlsx"))
-share_classification <- share_classification[share_classification[,"Symbol"] == "NTES:xnas",]
+#share_classification <- share_classification[share_classification[,"Symbol"] == "NTES:xnas",]
 
 trades <- read_excel(here("Data", "TradesExecuted.xlsx"), sheet=2)
 closed_positions <- read_excel(here("Data", "ClosedPositions.xlsx"))
@@ -49,27 +55,26 @@ open_trades <- trades[trades[,"Open/Close"] == "Open",]
 # TODO: Change this to by.x, by.y so that we don't have to rename the column
 open_trades_with_closed_pos <- merge(x = open_trades, y = closed_positions, by = "Trade ID", all.x = TRUE)
 
-open_positions <- open_trades_with_closed_pos[is.na(open_trades_with_closed_pos[,"Trade Date"]),]
+open_positions <- open_trades_with_closed_pos[is.na(open_trades_with_closed_pos[, "Trade Date Close"]),] %>% data.table()
 
 stock_splits <- merge(x = open_positions, 
                       y = trades[trades[,"B/S"] == "Sold",], 
                       by = c("Symbol", "TradeTime")) %>% 
-                filter(Amount.x > Amount) %>% 
-                select("Symbol", "TradeTime", "Amount") %>%
+                filter(Amount.x > Amount.y) %>% 
+                select("Symbol", "TradeTime", "Amount.y") %>%
                 data.table()
 
-#open_positions <- data.table(open_trades_with_closed_pos[is.na(open_trades_with_closed_pos[,"Trade Date"]),])
-#open_positions <- open_positions[stock_splits, on=.(Symbol = Symbol, TradeTime <= TradeTime)]
+open_positions <- merge(x = open_positions,
+                        y = stock_splits,
+                        by = "Symbol",
+                        all.x = TRUE) %>%
+                  filter(is.na(TradeTime.y) | TradeTime.x >= TradeTime.y) %>%
+                  data.table() %>%
+                  arrange("Symbol")
 
-View(open_positions)
-View(stock_splits)
+# open_positions_sorted <- open_positions[order(open_positions[,"Symbol"]),]
 
-# Now left join open_positions onto stock_splits by Symbol and filter out the ones where the trade date is before the stock_split date 
-
-
-open_positions_sorted <- open_positions[order(open_positions[,"Symbol"]),]
-
-open_positions_details <- merge(x = open_positions_sorted, y = share_classification, by = "Symbol")
+open_positions_details <- merge(x = open_positions, y = share_classification, by = "Symbol")
 
 symbols <- unique(share_classification[,"Symbol (Yahoo!)"])[[1]]
 
@@ -83,8 +88,11 @@ market_prices <- BatchGetSymbols(tickers = symbols,
                                 freq.data = freq.data,
                                 cache.folder = file.path('BGS_Cache'))
 
-first_trade_date <- min(open_positions_details[,"TradeTime"], na.rm = TRUE)
-last_trade_date <- max(open_positions_details[,"TradeTime"], na.rm = TRUE)
+# View(sapply(open_positions_details, class))
+#View(open_positions_details)
+
+first_trade_date = min(open_positions_details[["TradeTime.x"]])
+last_trade_date <- max(open_positions_details[["TradeTime.x"]])
 
 to_curs <- c("USD", "SEK", "EUR", "GBP", "HKD", "SGD") # TODO: Get this from the spread sheet
 
@@ -110,6 +118,9 @@ for (i in 1:length(to_curs)) {
 # in case there's a gap between the last trade date (used as the end_date for the historic
 # rates) and today, which we then don't have to download
 fx_rates  <- exchange_rate_latest(account_currency)
+fx_rates[] <- lapply(fx_rates, function(x) if(is.factor(x)) as.character(x) else x)
+
+str(fx_rates)
 
 last_share_prices <- c()
 position_open_fx_rates <- c()
@@ -117,24 +128,28 @@ position_close_fx_rates <- c()
 position_fx_rates <- c()
 for (row in 1:nrow(open_positions_details)) {
   #message(paste("FACTOR", open_positions_details[row, "Factor"], sep=""))
-  last_share_prices <- c(last_share_prices,
-                         get_last_share_price(market_prices[["df.tickers"]],
-                                              open_positions_details[row, "Symbol (Yahoo!)"],
-                                              "close",
-                                              open_positions_details[row, "Factor"]))
-
-  share_currency <- open_positions_details[row, "Currency"]
-  trade_time <- open_positions_details[row, "TradeTime"]
-
+  last_share_price <- get_last_share_price(market_prices[["df.tickers"]],
+                                           as.character(open_positions_details[row, "Symbol (Yahoo!)"]),
+                                           "close",
+                                           as.numeric(open_positions_details[row, Factor]))
+  
+  last_share_prices <- c(last_share_prices, last_share_price)
+  
+  share_currency <- open_positions_details[row, Currency]
+  trade_time <- open_positions_details[row, TradeTime.x]
+  
   position_open_fx_rate <- 1
   position_close_fx_rate <- 1
 
   if (share_currency != account_currency) {
-    currency_idx = match(c(share_currency), to_curs) + 1
-
-    position_open_fx_rate <- historic_fx_rates[historic_fx_rates[,"date"] == trade_time,][1, currency_idx]
-
-    position_close_fx_rate <- fx_rates[fx_rates[,"currency"] == share_currency,][1,2]
+    position_open_fx_rate <- historic_fx_rates %>%
+                              filter(date == trade_time) %>%
+                              slice_head() %>%
+                              pull(paste("one_", account_currency, "_equivalent_to_x_", share_currency, sep=""))
+    
+    position_close_fx_rate <- fx_rates %>%
+                              filter(currency == share_currency) %>%
+                              pull(2)
   }
 
   position_open_fx_rates <- c(position_open_fx_rates, position_open_fx_rate)
@@ -142,25 +157,25 @@ for (row in 1:nrow(open_positions_details)) {
   position_close_fx_rates <- c(position_close_fx_rates, position_close_fx_rate)
 }
 
-open_positions_details["last_share_price"] <- last_share_prices
-open_positions_details["position_open_fx_rate"] <- position_open_fx_rates
-open_positions_details["position_close_fx_rate"] <- position_close_fx_rates
+open_positions_details <- cbind(open_positions_details, last_share_price = last_share_prices)
+open_positions_details <- cbind(open_positions_details, position_open_fx_rate = position_open_fx_rates)
+open_positions_details <- cbind(open_positions_details, position_close_fx_rate = position_close_fx_rates)
 
-open_positions_details["position_total_open"] <- abs(open_positions_details[,"Trade Value"])/
-                                                  open_positions_details[,"position_open_fx_rate"]
+View(open_positions_details)
 
+open_positions_details <- cbind(open_positions_details, position_total_open = (abs(open_positions_details[,"Trade Value"])/
+                                                                                  open_positions_details[,"position_open_fx_rate"]) %>%
+                                                                                pull("Trade Value"))
 
-open_positions_details["position_total_close"]  <- (open_positions_details[,"Amount.x"] *
-                                                    open_positions_details[,"last_share_price"])/
-                                                    open_positions_details[,"position_close_fx_rate"]
+open_positions_details <- cbind(open_positions_details, position_total_close = ((open_positions_details[,"Amount"] *
+                                                                                   open_positions_details[,"last_share_price"])/
+                                                                                  open_positions_details[,"position_close_fx_rate"]) %>%
+                                                                                pull("Amount"))
 
-open_holdings_summary <- aggregate(list(holding_total_open = open_positions_details[, "position_total_open"]),
-                                   by=list(instrument = open_positions_details[, "Instrument"]), FUN=sum)
+open_holdings_summary <- open_positions_details %>%
+                          group_by(Instrument) %>%
+                          summarise(holding_total_open = sum(position_total_open),
+                                    holding_total_close = sum(position_total_close)) %>%
+                          arrange(desc(holding_total_close))
 
-holding_total_close <- aggregate(list(holding_total_close = open_positions_details[, "position_total_close"]),
-                                 by=list(instrument = open_positions_details[, "Instrument"]), FUN=sum)
-
-open_holdings_summary["holding_total_close"] <- holding_total_close[,"holding_total_close"]
-
-#View(open_positions_details)
-# View(open_holdings_summary[order(-open_holdings_summary[,"holding_total_close"]),])
+View(open_holdings_summary)
