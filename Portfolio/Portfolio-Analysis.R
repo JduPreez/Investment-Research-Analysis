@@ -72,14 +72,12 @@ open_positions <- merge(x = open_positions,
                   data.table() %>%
                   arrange("Symbol")
 
-# open_positions_sorted <- open_positions[order(open_positions[,"Symbol"]),]
-
 open_positions_details <- merge(x = open_positions, y = share_classification, by = "Symbol")
 
 symbols <- unique(share_classification[,"Symbol (Yahoo!)"])[[1]]
 
-first.date <- Sys.Date() - 5
-last.date <- Sys.Date()
+first.date <- Sys.Date() - 15 # Need to make it go back 15 days, because BatchGetSymbols breaks if there's a gap in the data
+last.date <- Sys.Date() + 1
 freq.data <- "daily"
 
 market_prices <- BatchGetSymbols(tickers = symbols,
@@ -87,9 +85,6 @@ market_prices <- BatchGetSymbols(tickers = symbols,
                                 last.date = last.date,
                                 freq.data = freq.data,
                                 cache.folder = file.path('BGS_Cache'))
-
-# View(sapply(open_positions_details, class))
-#View(open_positions_details)
 
 first_trade_date = min(open_positions_details[["TradeTime.x"]])
 last_trade_date <- max(open_positions_details[["TradeTime.x"]])
@@ -119,8 +114,6 @@ for (i in 1:length(to_curs)) {
 # rates) and today, which we then don't have to download
 fx_rates  <- exchange_rate_latest(account_currency)
 fx_rates[] <- lapply(fx_rates, function(x) if(is.factor(x)) as.character(x) else x)
-
-str(fx_rates)
 
 last_share_prices <- c()
 position_open_fx_rates <- c()
@@ -160,8 +153,6 @@ for (row in 1:nrow(open_positions_details)) {
 open_positions_details <- cbind(open_positions_details, last_share_price = last_share_prices)
 open_positions_details <- cbind(open_positions_details, position_open_fx_rate = position_open_fx_rates)
 open_positions_details <- cbind(open_positions_details, position_close_fx_rate = position_close_fx_rates)
-
-View(open_positions_details)
 
 open_positions_details <- cbind(open_positions_details, position_total_open = (abs(open_positions_details[,"Trade Value"])/
                                                                                   open_positions_details[,"position_open_fx_rate"]) %>%
