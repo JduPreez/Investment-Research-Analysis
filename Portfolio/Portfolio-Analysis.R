@@ -3,6 +3,7 @@
 #install.packages("remotes")
 #install.packages("priceR")
 #install.packages("data.table")
+#install.packages("ggplot2")
 
 library(data.table)
 library(here)
@@ -14,6 +15,14 @@ library(grid)
 library(BatchGetSymbols)
 library(quantmod)
 library(priceR)
+library(ggplot2)
+
+####################################################################
+# TODO: 
+#   1. Convert data frames & tables to tibble?????????
+#   2. Add holding percentage of overall total holdings
+#   3. Add pie chart for ETF vs individual stocks %
+####################################################################
 
 options(scipen = 999)
 options(digits = 6)
@@ -21,11 +30,6 @@ options(digits = 6)
 account_currency <- "SGD"
 
 get_last_share_price <- function(share_prices, symbol, type, fraction)  {
-  # For some reason sometimes duplicate share_prices are returned for a day.
-  # So 1st remove these.
-  #share_prices <- share_prices %>%
-  #                distinct(price.open, price.high, price.low, price.close, price.adjusted, ref.date, ticker)
-  
   fraction <- ifelse(!is.na(fraction), fraction, 1)
   symbol_prices <- share_prices[share_prices[,"ticker"] == symbol,]
   last_date <- max(symbol_prices[,"ref.date"], na.rm = TRUE)
@@ -38,12 +42,8 @@ first.date <- Sys.Date() - 10
 last.date <- Sys.Date()
 freq.data <- "daily"
 
-# TODO!!!!!!!!!!!!!!!!!:  NetEase was rolled up into one position & the separate positions were 
-#                         'silently' closed by the broker
-#                         NetEase stock was split. How to handle stock splits?
-
 share_classification <- read_excel(here("Data", "Share_Classification.xlsx"))
-#share_classification <- share_classification[share_classification[,"Symbol"] == "NTES:xnas",]
+#share_classification <- share_classification[share_classification[,"Symbol"] == "CLNK_B:xome",]
 
 trades <- read_excel(here("Data", "TradesExecuted.xlsx"), sheet=2)
 closed_positions <- read_excel(here("Data", "ClosedPositions.xlsx"))
@@ -86,7 +86,7 @@ market_prices <- BatchGetSymbols(tickers = symbols,
                                 freq.data = freq.data,
                                 cache.folder = file.path('BGS_Cache'))
 
-first_trade_date = min(open_positions_details[["TradeTime.x"]])
+first_trade_date <- min(open_positions_details[["TradeTime.x"]])
 last_trade_date <- max(open_positions_details[["TradeTime.x"]])
 
 to_curs <- c("USD", "SEK", "EUR", "GBP", "HKD", "SGD") # TODO: Get this from the spread sheet
@@ -97,14 +97,14 @@ for (i in 1:length(to_curs)) {
   if (i == 1) {
     # TODO: Get start & end date from spead sheet
     historic_fx_rates <- historical_exchange_rates(account_currency, to = to_curs[i],
-                                                  start_date = "2017-12-25",
-                                                  end_date = "2020-12-18")
+                                                  start_date = first_trade_date,
+                                                  end_date = last_trade_date)
   }
 
   if (i > 1) {
     currency_rates <- historical_exchange_rates(account_currency, to = to_curs[i],
-                                                start_date = "2017-12-25",
-                                                end_date = "2020-12-18")
+                                                start_date = first_trade_date,
+                                                end_date = last_trade_date)
     historic_fx_rates <- historic_fx_rates %>% left_join(currency_rates, by = "date")
   }
 }
@@ -130,7 +130,7 @@ for (row in 1:nrow(open_positions_details)) {
   
   share_currency <- open_positions_details[row, Currency]
   trade_time <- open_positions_details[row, TradeTime.x]
-  
+   
   position_open_fx_rate <- 1
   position_close_fx_rate <- 1
 
@@ -163,10 +163,38 @@ open_positions_details <- cbind(open_positions_details, position_total_close = (
                                                                                   open_positions_details[,"position_close_fx_rate"]) %>%
                                                                                 pull("Amount"))
 
+all_holdings_total_open <- sum(open_positions_details[,"position_total_open"])
+all_holdings_total_close <- sum(open_positions_details[,"position_total_close"])
+
+# holding_open_weight = round((position_total_open/all_holdings_total_open) * 100, 2),
+# holding_close_weight = round((position_total_close/all_holdings_total_close) * 100, 2)
+# holding_open_weight = round((holding_total_open/all_holdings_total_open) * 100, 2)
+
+View(open_positions_details)
+
 open_holdings_summary <- open_positions_details %>%
-                          group_by(Instrument) %>%
+                          group_by(Instrument,Symbol) %>%
                           summarise(holding_total_open = sum(position_total_open),
                                     holding_total_close = sum(position_total_close)) %>%
-                          arrange(desc(holding_total_close))
+                          arrange(desc(holding_total_open)) %>%
+                          inner_join(share_classification, by = "Symbol")
 
-View(open_holdings_summary)
+holdings_by_strategy <- open_holdings_summary %>%
+                        group_by(Strategy) %>%
+                        summarize(holding_total_open = sum(holding_total_open), 
+                                  holding_total_close = sum(holding_total_close)) %>%
+                        mutate(holding_total_open_perc = round((holding_total_open/sum(holding_total_open)) * 100, 2),
+                               holding_total_close_perc = round((holding_total_close/sum(holding_total_close)) * 100, 2)) # %>%
+                        #arrange(desc(holding_total_close_perc))
+
+holdings_by_strategy_chart <- ggplot(holdings_by_strategy, aes(x="", y=holding_total_open_perc, fill=Strategy)) +
+                                            geom_bar(stat = "identity", width = 1, size = 1, color = "white") +
+                                            coord_polar("y", start=0) +
+                                            geom_text(aes(label = paste0(holding_total_open_perc, "%")), position = position_stack(vjust=0.5)) +
+                                            labs(x = NULL, y = NULL, fill = NULL) +
+                                            theme_classic() +
+                                            theme(axis.line = element_blank(),
+                                                  axis.text = element_blank(),
+                                                  axis.ticks = element_blank())
+
+show(holdings_by_strategy_chart)
