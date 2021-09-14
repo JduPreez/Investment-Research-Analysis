@@ -1,0 +1,45 @@
+---
+title: "Portfolio analysis"
+---
+```{r setup, include = FALSE}
+library(ggplot2)
+library(dplyr)
+library(here)
+```
+
+
+```{r data, echo=FALSE, cache=FALSE}
+load(here("Portfolio", "Portfolio-Analysis.rda"))
+```  
+### Holdings
+```{r Table, echo=FALSE} 
+knitr::kable(data_model$open_holdings_summary) 
+```
+
+### Growth/Value
+```{r, echo=FALSE}
+ggplot(data_model$holdings_by_strategy, 
+        aes(x="", y=holding_total_open_perc, fill=Strategy)) +
+        geom_bar(stat = "identity", width = 1, size = 1, color = "white") +
+        coord_polar("y", start=0) +
+        geom_text(aes(label = paste0(holding_total_open_perc, "%")), position = position_stack(vjust=0.5)) +
+        labs(x = NULL, y = NULL, fill = NULL) +
+        theme_classic() +
+        theme(axis.line = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank())
+```
+
+### Asset Type
+```{r, echo=FALSE}
+ggplot(data_model$holdings_by_asset_type, 
+        aes(x="", y=holding_total_open_perc, fill=.data[["Asset Type"]])) +
+        geom_bar(stat = "identity", width = 1, size = 1, color = "white") +
+        coord_polar("y", start=0) +
+        geom_text(aes(label = paste0(holding_total_open_perc, "%")), position = position_stack(vjust=0.5)) +
+        labs(x = NULL, y = NULL, fill = NULL) +
+        theme_classic() +
+        theme(axis.line = element_blank(),
+              axis.text = element_blank(),
+              axis.ticks = element_blank())
+```

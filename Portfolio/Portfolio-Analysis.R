@@ -184,42 +184,16 @@ get_chart_data <- function(open_holdings_summary_in, group_by_field) {
                               holding_total_close = sum(holding_total_close)) %>%
                     mutate(holding_total_open_perc = round((holding_total_open/sum(holding_total_open)) * 100, 2),
                            holding_total_close_perc = round((holding_total_close/sum(holding_total_close)) * 100, 2)) # %>%
-                    #arrange(desc(holding_total_close_perc))
+                    #arrange(desc(holding_total_close_perc)) 
                   }
-
-# holdings_by_strategy <- open_holdings_summary %>%
-#                         group_by(Strategy) %>%
-#                         summarize(holding_total_open = sum(holding_total_open), 
-#                                   holding_total_close = sum(holding_total_close)) %>%
-#                         mutate(holding_total_open_perc = round((holding_total_open/sum(holding_total_open)) * 100, 2),
-#                                holding_total_close_perc = round((holding_total_close/sum(holding_total_close)) * 100, 2)) # %>%
-#                         #arrange(desc(holding_total_close_perc))
 
 holdings_by_strategy <- get_chart_data(open_holdings_summary, "Strategy")
 
-holdings_by_strategy_chart <- ggplot(holdings_by_strategy, 
-                                      aes(x="", y=holding_total_open_perc, fill=Strategy)) +
-                                      geom_bar(stat = "identity", width = 1, size = 1, color = "white") +
-                                      coord_polar("y", start=0) +
-                                      geom_text(aes(label = paste0(holding_total_open_perc, "%")), position = position_stack(vjust=0.5)) +
-                                      labs(x = NULL, y = NULL, fill = NULL) +
-                                      theme_classic() +
-                                      theme(axis.line = element_blank(),
-                                            axis.text = element_blank(),
-                                            axis.ticks = element_blank())
-
 holdings_by_asset_type <- get_chart_data(open_holdings_summary, "Asset Type")
-holdings_by_asset_type_chart <- ggplot(holdings_by_asset_type, 
-                                        aes(x="", y=holding_total_open_perc, fill=.data[["Asset Type"]])) +
-                                        geom_bar(stat = "identity", width = 1, size = 1, color = "white") +
-                                        coord_polar("y", start=0) +
-                                        geom_text(aes(label = paste0(holding_total_open_perc, "%")), position = position_stack(vjust=0.5)) +
-                                        labs(x = NULL, y = NULL, fill = NULL) +
-                                        theme_classic() +
-                                        theme(axis.line = element_blank(),
-                                              axis.text = element_blank(),
-                                              axis.ticks = element_blank())
 
-show(holdings_by_strategy_chart)
-show(holdings_by_asset_type_chart)
+data_model         <- list(open_holdings_summary, get_chart_data, holdings_by_strategy, holdings_by_asset_type)
+names(data_model)  <- c("open_holdings_summary", "get_chart_data", "holdings_by_strategy", "holdings_by_asset_type")
+
+save(data_model, file = "Portfolio/Portfolio-Analysis.rda")
+
 
