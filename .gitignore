@@ -36,3 +36,7 @@ vignettes/*.pdf
 rsconnect/
 
 Data
+
+Portfolio/*.rda
+Portfolio/*.html
+Portfolio/*.pdf

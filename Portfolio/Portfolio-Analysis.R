@@ -88,13 +88,16 @@ market_prices <- BatchGetSymbols(tickers = symbols,
 first_trade_date <- min(open_positions_details[["TradeTime.x"]])
 last_trade_date <- max(open_positions_details[["TradeTime.x"]])
 
-to_curs <- c("USD", "SEK", "EUR", "GBP", "HKD", "SGD") # TODO: Get this from the spread sheet
+to_curs <- share_classification %>%
+            distinct(.data[["Currency"]]) %>%
+            pull(.data[["Currency"]])
+
+#to_curs <- c("USD", "SEK", "EUR", "GBP", "HKD", "SGD", "JPY") # TODO: Get this from the spread sheet
 
 historic_fx_rates <- data.frame(date=as.Date(character()))
 
 for (i in 1:length(to_curs)) {
   if (i == 1) {
-    # TODO: Get start & end date from spead sheet
     historic_fx_rates <- historical_exchange_rates(account_currency, to = to_curs[i],
                                                   start_date = first_trade_date,
                                                   end_date = last_trade_date)
