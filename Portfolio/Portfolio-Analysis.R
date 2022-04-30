@@ -18,7 +18,7 @@ library(priceR)
 library(ggplot2)
 
 ####################################################################
-# TODO: 
+# TODO:
 #   - Convert data frames & tables to tibble?????????
 #   - Add pie chart for ETF vs individual stocks %
 ####################################################################
@@ -56,10 +56,10 @@ open_trades_with_closed_pos <- merge(x = open_trades, y = closed_positions, by =
 
 open_positions <- open_trades_with_closed_pos[is.na(open_trades_with_closed_pos[, "Trade Date Close"]),] %>% data.table()
 
-stock_splits <- merge(x = open_positions, 
-                      y = trades[trades[,"B/S"] == "Sold",], 
-                      by = c("Symbol", "TradeTime")) %>% 
-                filter(Amount.x > Amount.y) %>% 
+stock_splits <- merge(x = open_positions,
+                      y = trades[trades[,"B/S"] == "Sold",],
+                      by = c("Symbol", "TradeTime")) %>%
+                filter(Amount.x > Amount.y) %>%
                 select("Symbol", "TradeTime", "Amount.y") %>%
                 data.table()
 
@@ -127,12 +127,12 @@ for (row in 1:nrow(open_positions_details)) {
                                            as.character(open_positions_details[row, "Symbol (Yahoo!)"]),
                                            "close",
                                            as.numeric(open_positions_details[row, Factor]))
-  
+
   last_share_prices <- c(last_share_prices, last_share_price)
-  
+
   share_currency <- open_positions_details[row, Currency]
   trade_time <- open_positions_details[row, TradeTime.x]
-   
+
   position_open_fx_rate <- 1
   position_close_fx_rate <- 1
 
@@ -141,7 +141,7 @@ for (row in 1:nrow(open_positions_details)) {
                               filter(date == trade_time) %>%
                               slice_head() %>%
                               pull(paste("one_", account_currency, "_equivalent_to_x_", share_currency, sep=""))
-    
+
     position_close_fx_rate <- fx_rates %>%
                               filter(currency == share_currency) %>%
                               pull(2)
@@ -183,11 +183,11 @@ open_holdings_summary <- open_positions_details %>%
 get_chart_data <- function(open_holdings_summary_in, group_by_field) {
                     open_holdings_summary_in %>%
                     group_by(.data[[group_by_field]]) %>%
-                    summarize(holding_total_open = sum(holding_total_open), 
+                    summarize(holding_total_open = sum(holding_total_open),
                               holding_total_close = sum(holding_total_close)) %>%
                     mutate(holding_total_open_perc = round((holding_total_open/sum(holding_total_open)) * 100, 2),
                            holding_total_close_perc = round((holding_total_close/sum(holding_total_close)) * 100, 2)) # %>%
-                    #arrange(desc(holding_total_close_perc)) 
+                    #arrange(desc(holding_total_close_perc))
                   }
 
 holdings_by_strategy <- get_chart_data(open_holdings_summary, "Strategy")
