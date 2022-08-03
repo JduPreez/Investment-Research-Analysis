@@ -30,11 +30,13 @@ portfolio_end_value <- sum(end_rows[,"Amount Account Currency"])
 portfolio_avg_value <- (portfolio_start_value + portfolio_end_value)/2
 portfolio_avg_value_zar <- portfolio_avg_value * sgdzar
 
-corp_actions <- filter(aggregated_amounts, aggregated_amounts[,"Amount Type Name"] == "Corporate Actions - Cash Dividends" |
-                                            aggregated_amounts[,"Amount Type Name"] == "Corporate Actions - Fractions" |
-                                            aggregated_amounts[,"Amount Type Name"] == "Corporate Actions - Withholding Tax")
+# corp_actions <- filter(aggregated_amounts, aggregated_amounts[,"Amount Type Name"] == "Corporate Actions - Cash Dividends" |
+#                                             aggregated_amounts[,"Amount Type Name"] == "Corporate Actions - Fractions" |
+#                                             aggregated_amounts[,"Amount Type Name"] == "Corporate Actions - Withholding Tax")
+# 
+# saxo_dma_total_divi <- sum(corp_actions[,"Amount Account Currency"])
 
-saxo_dma_total_divi <- sum(corp_actions[,"Amount Account Currency"])
+saxo_dma_total_divi <- lib$saxo_dma$dividends$total_dividend_amount(aggregated_amounts)
 
 # Do it manually - EasyEquities doesn't have an Excel/CSV export of this
 # Dividends & interest
