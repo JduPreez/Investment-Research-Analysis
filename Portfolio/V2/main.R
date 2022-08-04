@@ -13,21 +13,22 @@ lib <- modules::use(here("Portfolio", "V2", "R"))
 
 aggregated_amounts <- read_excel(here("Portfolio", "V2", "data", "aggregated_amounts.xlsx"))
 
-time_period <- aggregated_amounts %>%
-                summarize(start_date = min(Date, na.rm = TRUE),
-                end_date = max(Date, na.rm = TRUE))
-
-start_rows <- filter(aggregated_amounts, Date == time_period$start_date,
-                                          aggregated_amounts[,"Amount Type Name"] == "Position Values" |
-                                          aggregated_amounts[,"Amount Type Name"] == "Cash")
-
-end_rows <- filter(aggregated_amounts, Date == time_period$end_date,
-                                        aggregated_amounts[,"Amount Type Name"] == "Position Values" |
-                                        aggregated_amounts[,"Amount Type Name"] == "Cash")
-
-portfolio_start_value <- sum(start_rows[,"Amount Account Currency"])
-portfolio_end_value <- sum(end_rows[,"Amount Account Currency"])
-portfolio_avg_value <- (portfolio_start_value + portfolio_end_value)/2
+# time_period <- aggregated_amounts %>%
+#                 summarize(start_date = min(Date, na.rm = TRUE),
+#                 end_date = max(Date, na.rm = TRUE))
+# 
+# start_rows <- filter(aggregated_amounts, Date == time_period$start_date,
+#                                           aggregated_amounts[,"Amount Type Name"] == "Position Values" |
+#                                           aggregated_amounts[,"Amount Type Name"] == "Cash")
+# 
+# end_rows <- filter(aggregated_amounts, Date == time_period$end_date,
+#                                         aggregated_amounts[,"Amount Type Name"] == "Position Values" |
+#                                         aggregated_amounts[,"Amount Type Name"] == "Cash")
+# 
+# portfolio_start_value <- sum(start_rows[,"Amount Account Currency"])
+# portfolio_end_value <- sum(end_rows[,"Amount Account Currency"])
+# portfolio_avg_value <- (portfolio_start_value + portfolio_end_value)/2
+portfolio_avg_value <- lib$saxo_dma$portfolio$average_value(aggregated_amounts)
 portfolio_avg_value_zar <- portfolio_avg_value * sgdzar
 
 # corp_actions <- filter(aggregated_amounts, aggregated_amounts[,"Amount Type Name"] == "Corporate Actions - Cash Dividends" |
