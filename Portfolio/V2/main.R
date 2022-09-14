@@ -3,13 +3,14 @@ library(readxl)
 library(here)
 library(tibble)
 library(tidyverse)
+library(priceR)
 
 options(scipen = 999)
 options(digits = 6)
 
-sgdzar <- 11.42
-
 lib <- modules::use(here("Portfolio", "V2", "R"))
+
+# TODO: Extract divis for EE + portfolio average value
 
 aggregated_amounts <- read_excel(here("Portfolio", "V2", "data", "aggregated_amounts.xlsx"))
 
@@ -28,8 +29,10 @@ aggregated_amounts <- read_excel(here("Portfolio", "V2", "data", "aggregated_amo
 # portfolio_start_value <- sum(start_rows[,"Amount Account Currency"])
 # portfolio_end_value <- sum(end_rows[,"Amount Account Currency"])
 # portfolio_avg_value <- (portfolio_start_value + portfolio_end_value)/2
-portfolio_avg_value <- lib$saxo_dma$portfolio$average_value(aggregated_amounts)
-portfolio_avg_value_zar <- portfolio_avg_value * sgdzar
+portfolio_avg_value_zar <- lib$saxo_dma$portfolio$average_value(aggregated_amounts, c("SGD", "ZAR"))
+#portfolio_avg_value_zar <- portfolio_avg_value * sgdzar
+
+
 
 # corp_actions <- filter(aggregated_amounts, aggregated_amounts[,"Amount Type Name"] == "Corporate Actions - Cash Dividends" |
 #                                             aggregated_amounts[,"Amount Type Name"] == "Corporate Actions - Fractions" |
@@ -49,7 +52,6 @@ ee_total_divi <- sum(ee_divi)
 total_divi_zar <- (saxo_dma_total_divi * sgdzar) + ee_total_divi
 
 portfolio_yield <- (total_divi_zar/portfolio_avg_value_zar) * 100
-
 
 
 

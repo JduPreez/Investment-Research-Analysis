@@ -1,9 +1,3 @@
-#library(modules)
-
-# modules::import(tidyquant)
-# modules::import(tibble)
-# modules::import(tidyverse)
-# modules::import(readxl)
 
 dividends <- module({
   import("dplyr")
@@ -21,9 +15,18 @@ dividends <- module({
 portfolio <- module({
   import("tibble")
   import("dplyr")
+  import("priceR")
   
   export("average_value")
-  average_value <- function (aggregated_amounts_tbl) {
+  average_value <- function (aggregated_amounts_tbl, currency_pair) {
+    from_currency <- currency_pair[1]
+    to_currency <- currency_pair[2]
+    forex_rate <- exchange_rate_latest(from_currency) %>%
+                  filter(currency == to_currency)
+    forex_rate <- forex_rate[[2]]
+    
+    print(forex_rate)
+    
     time_period <- aggregated_amounts_tbl %>%
                     dplyr::summarize(start_date = min(Date, na.rm = TRUE),
                                       end_date = max(Date, na.rm = TRUE))
@@ -39,6 +42,10 @@ portfolio <- module({
     portfolio_start_value <- sum(start_rows[,"Amount Account Currency"])
     portfolio_end_value <- sum(end_rows[,"Amount Account Currency"])
     portfolio_avg_value <- (portfolio_start_value + portfolio_end_value)/2
-    portfolio_avg_value
+    
+    print(c("Portfolio average value ", portfolio_avg_value))
+    
+    portfolio_avg_value_to_cur <- portfolio_avg_value * forex_rate
+    portfolio_avg_value_to_cur
   }
 })
